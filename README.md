@@ -8,10 +8,10 @@ Define column calculations using a simple `@function(args)` syntax and apply the
 
 ```bash
 # From GitHub
-pip install git+https://github.com/yourusername/pandas-formula.git
+pip install git+https://github.com/fyangcodes/pandas-formula.git
 
 # For development
-git clone https://github.com/yourusername/pandas-formula.git
+git clone https://github.com/fyangcodes/pandas-formula.git
 cd pandas-formula
 pip install -e ".[dev]"
 ```
