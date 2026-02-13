@@ -156,6 +156,31 @@ if errors:
         print(f"Error: {err}")
 ```
 
+## Extract References
+
+Statically analyze formulas to find which column names they reference, without executing anything:
+
+```python
+engine = FormulaEngine()
+
+# Single formula
+engine.extract_references('@mul(price, quantity)')
+# {'price', 'quantity'}
+
+engine.extract_references('@clip(value, lower=0)')
+# {'value'}  — keyword args and numeric literals are excluded
+
+engine.extract_references('@if_else(@gt(score, 70), "pass", "fail")')
+# {'score'}  — string literals and function names are excluded
+
+# Batch extraction from a dict of formulas
+engine.extract_references_batch({
+    'total': '@mul(price, quantity)',
+    'status': '@if_else(@gt(score, 70), "pass", "fail")',
+})
+# {'price', 'quantity', 'score'}
+```
+
 ## Export
 
 ```python

@@ -4,9 +4,17 @@ Formula Engine - Main engine for evaluating formulas on pandas DataFrames.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 import pandas as pd
+
+_FUNC_PATTERN = re.compile(r"@(\w+)")
+_KWARG_PATTERN = re.compile(r"\b(\w+)\s*=")
+_NUMERIC_PATTERN = re.compile(r"^-?\d+\.?\d*$")
+_SCI_NOTATION = re.compile(r"\d+\.?\d*e[+-]?\d+", re.IGNORECASE)
+_STRING_LITERAL = re.compile(r"""('[^']*'|"[^"]*")""")
+_IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][\w.\[\]]*")
 
 from .functions import FunctionRegistry, create_default_registry
 
@@ -91,9 +99,7 @@ class FormulaEngine:
         self._formulas[column] = formula
         return self
 
-    def _eval_formula(
-        self, df: pd.DataFrame, column: str, formula: str
-    ) -> None:
+    def _eval_formula(self, df: pd.DataFrame, column: str, formula: str) -> None:
         """Evaluate a single formula on a DataFrame.
 
         Args:
@@ -111,9 +117,7 @@ class FormulaEngine:
             inplace=True,
         )
 
-    def _resolve_formulas(
-        self, formulas: dict[str, str] | None
-    ) -> dict[str, str]:
+    def _resolve_formulas(self, formulas: dict[str, str] | None) -> dict[str, str]:
         """Resolve formulas, using internal formulas if none provided."""
         return formulas or self._formulas
 
@@ -167,7 +171,7 @@ class FormulaEngine:
             List of error messages (empty if valid)
         """
         sample = df.head(1).copy()
-        
+
         formulas = self._resolve_formulas(formulas)
         errors = []
 
@@ -178,6 +182,47 @@ class FormulaEngine:
                 errors.append(f"{column}: {e}")
 
         return errors
+
+    def extract_references(self, formula: str) -> set[str]:
+        """Extract column name references from a formula string.
+
+        Statically analyzes without executing. Returns identifiers that are
+        not registered functions, numeric literals, or keyword arguments.
+
+        Args:
+            formula: Formula string (e.g. '@my_func(argument)')
+
+        Returns:
+            Set of referenced column names (e.g. {'argument'})
+        """
+        func_names = set(_FUNC_PATTERN.findall(formula))
+        kwarg_names = set(_KWARG_PATTERN.findall(formula))
+        # Remove string literals and scientific notation before extracting identifiers
+        cleaned = _STRING_LITERAL.sub("", formula)
+        cleaned = _SCI_NOTATION.sub("", cleaned)
+        all_ids = set(_IDENTIFIER_PATTERN.findall(cleaned))
+
+        return {
+            name
+            for name in all_ids
+            if name not in func_names
+            and name not in kwarg_names
+            and not _NUMERIC_PATTERN.match(name)
+        }
+
+    def extract_references_batch(self, formulas: dict[str, str]) -> set[str]:
+        """Extract all column references from a dict of formulas.
+
+        Args:
+            formulas: Dict of target_column -> formula_string
+
+        Returns:
+            Union of all referenced column names across all formulas
+        """
+        refs = set()
+        for formula in formulas.values():
+            refs |= self.extract_references(formula)
+        return refs
 
     def list_functions(self) -> list[str]:
         """List all registered functions."""

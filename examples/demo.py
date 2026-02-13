@@ -5,6 +5,7 @@ Run after installing the package:
     pip install -e .
     python examples/demo.py
 """
+from pprint import pprint
 
 import numpy as np
 import pandas as pd
@@ -12,7 +13,7 @@ import pandas as pd
 from pandas_formula import FormulaEngine
 
 
-def main():
+def demo_common():
     print("=" * 60)
     print("PANDAS FORMULA ENGINE DEMO")
     print("=" * 60)
@@ -78,8 +79,7 @@ def main():
     }
 
     print("\n[APPLYING FORMULAS]")
-    for col, formula in formulas.items():
-        print(f"  {col} = {formula}")
+    pprint(formulas)
 
     result = engine.apply(df, formulas)
 
@@ -132,6 +132,43 @@ def demo_chaining():
     print(result.to_string())
 
 
+def demo_extract_references():
+    """Demo extracting column references from formulas."""
+    print("\n" + "=" * 60)
+    print("EXTRACT REFERENCES DEMO")
+    print("=" * 60)
+
+    engine = FormulaEngine()
+
+    # Single formula
+    examples = [
+        "@mul(price, quantity)",
+        "@clip(value, lower=0)",
+        "@div(@add(revenue, bonus), 1e6)",
+        "raw_column",
+        "3.14",
+    ]
+
+    print("\n[SINGLE FORMULA]")
+    for formula in examples:
+        refs = engine.extract_references(formula)
+        print(f"  {formula!r:45s} -> {refs}")
+
+    # Batch extraction
+    formulas = {
+        "price_clean": "@coalesce(price, 0)",
+        "subtotal": "@mul(price_clean, quantity)",
+        "status": "@if_else(@gt(score, 70), 'pass', 'fail')",
+        "margin_pct": "@round(@mul(margin, 100), 1)",
+    }
+
+    print("\n[BATCH EXTRACTION]")
+    pprint(formulas)
+    all_refs = engine.extract_references_batch(formulas)
+    print(f"\n  All referenced columns: {sorted(all_refs)}")
+
+
 if __name__ == "__main__":
-    main()
+    demo_common()
     demo_chaining()
+    demo_extract_references()

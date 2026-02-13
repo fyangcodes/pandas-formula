@@ -9,13 +9,15 @@ from pandas_formula import FormulaEngine
 
 @pytest.fixture
 def sample_df():
-    return pd.DataFrame({
-        "a": [1, 2, 3],
-        "b": [4, 5, 6],
-        "c": [7, 8, 9],
-        "name": ["alice", "bob", "charlie"],
-        "price": [100.0, 200.0, None],
-    })
+    return pd.DataFrame(
+        {
+            "a": [1, 2, 3],
+            "b": [4, 5, 6],
+            "c": [7, 8, 9],
+            "name": ["alice", "bob", "charlie"],
+            "price": [100.0, 200.0, None],
+        }
+    )
 
 
 @pytest.fixture
@@ -95,10 +97,13 @@ class TestCustomFunction:
 
 class TestChaining:
     def test_formula_chaining(self, engine, sample_df):
-        result = engine.apply(sample_df, {
-            "step1": "@mul(a, 2)",
-            "step2": "@add(step1, b)",
-        })
+        result = engine.apply(
+            sample_df,
+            {
+                "step1": "@mul(a, 2)",
+                "step2": "@add(step1, b)",
+            },
+        )
         assert result["step2"].tolist() == [6, 9, 12]
 
 
@@ -111,6 +116,59 @@ class TestValidation:
         errors = engine.validate(sample_df, {"result": "@add(a, nonexistent)"})
         assert len(errors) == 1
         assert "result" in errors[0]
+
+
+class TestExtractReferences:
+    def test_single_function_single_arg(self, engine):
+        assert engine.extract_references("@my_func(argument)") == {"argument"}
+
+    def test_function_with_kwarg(self, engine):
+        assert engine.extract_references("@clip(value, lower=274)") == {"value"}
+
+    def test_function_with_numeric_literal(self, engine):
+        assert engine.extract_references("@mul(price, 0.93)") == {"price"}
+
+    def test_nested_function(self, engine):
+        assert engine.extract_references("@div(@clip(score, lower=0), 1e6)") == {
+            "score"
+        }
+
+    def test_multiple_args(self, engine):
+        refs = engine.extract_references(
+            "@myfunc1(arg1, arg2)"
+        )
+        assert refs == {"arg1", "arg2"}
+
+    def test_string_literals_excluded(self, engine):
+        assert engine.extract_references("@if_else(@gt(score, 70), 'pass', 'fail')") == {
+            "score"
+        }
+
+    def test_double_quoted_string_excluded(self, engine):
+        assert engine.extract_references('@if_else(@gt(score, 70), "pass", "fail")') == {
+            "score"
+        }
+
+    def test_bare_column_name(self, engine):
+        assert engine.extract_references("raw_column") == {"raw_column"}
+
+    def test_numeric_zero(self, engine):
+        assert engine.extract_references("0") == set()
+
+    def test_numeric_integer(self, engine):
+        assert engine.extract_references("101325") == set()
+
+    def test_bare_identifier(self, engine):
+        assert engine.extract_references("timestamps") == {"timestamps"}
+
+    def test_batch(self, engine):
+        refs = engine.extract_references_batch(
+            {
+                "myfunc1": "@myfunc1(arg1)",
+                "myfunc2": "@myfunc2(arg2)",
+            }
+        )
+        assert refs == {"arg1", "arg2"}
 
 
 class TestFromDict:
