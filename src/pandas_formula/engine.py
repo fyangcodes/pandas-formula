@@ -68,6 +68,31 @@ class FormulaEngine:
         self._registry.register(name, func, doc)
         return self
 
+    def register_batch(
+        self, functions: dict[str, Callable | tuple[Callable, str]]
+    ) -> "FormulaEngine":
+        """Register multiple custom functions at once.
+
+        Args:
+            functions: Dict of name -> func, or name -> (func, doc)
+
+        Returns:
+            self for method chaining
+
+        Example:
+            >>> engine.register_batch({
+            ...     'margin': lambda rev, cost: (rev - cost) / rev,
+            ...     'discount': (lambda p, r: p * r, 'Apply discount'),
+            ... })
+        """
+        for name, entry in functions.items():
+            if isinstance(entry, tuple):
+                func, doc = entry
+            else:
+                func, doc = entry, ""
+            self._registry.register(name, func, doc)
+        return self
+
     def add_constant(self, name: str, value: Any) -> "FormulaEngine":
         """Add a constant value.
 

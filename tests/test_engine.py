@@ -95,6 +95,47 @@ class TestCustomFunction:
         assert result["result"].tolist() == [2.5, 3.5, 4.5]
 
 
+class TestRegisterBatch:
+    def test_batch_with_functions(self, engine, sample_df):
+        engine.register_batch({
+            "triple": lambda x: x * 3,
+            "double": lambda x: x * 2,
+        })
+        result = engine.apply(sample_df, {
+            "r1": "@triple(a)",
+            "r2": "@double(a)",
+        })
+        assert result["r1"].tolist() == [3, 6, 9]
+        assert result["r2"].tolist() == [2, 4, 6]
+
+    def test_batch_with_doc_tuples(self, engine, sample_df):
+        engine.register_batch({
+            "triple": (lambda x: x * 3, "Multiply by 3"),
+        })
+        result = engine.apply(sample_df, {"result": "@triple(a)"})
+        assert result["result"].tolist() == [3, 6, 9]
+        assert "triple" in engine.list_functions()
+
+    def test_batch_returns_self(self, engine):
+        ret = engine.register_batch({"noop": lambda x: x})
+        assert ret is engine
+
+    def test_batch_then_chain(self, engine, sample_df):
+        engine.register_batch({
+            "double": lambda x: x * 2,
+        }).register("triple", lambda x: x * 3)
+        result = engine.apply(sample_df, {
+            "r1": "@double(a)",
+            "r2": "@triple(a)",
+        })
+        assert result["r1"].tolist() == [2, 4, 6]
+        assert result["r2"].tolist() == [3, 6, 9]
+
+    def test_batch_empty(self, engine):
+        ret = engine.register_batch({})
+        assert ret is engine
+
+
 class TestChaining:
     def test_formula_chaining(self, engine, sample_df):
         result = engine.apply(

@@ -134,14 +134,33 @@ result = engine.apply(df, {
 | `@std` | `@std(a)` | Standard deviation |
 | `@pct_of_total` | `@pct_of_total(a)` | Percentage of total |
 
+## Batch Registration
+
+Register multiple custom functions at once with `register_batch()`. Values can be a plain function or a `(function, doc)` tuple:
+
+```python
+engine = FormulaEngine()
+engine.register_batch({
+    'margin': (lambda r, c: (r - c) / r, 'Profit margin ratio'),
+    'roi': lambda r, c: (r - c) / c,
+})
+```
+
 ## Method Chaining
+
+All registration methods return `self`, so you can chain freely:
 
 ```python
 engine = (
     FormulaEngine()
-    .register('margin', lambda r, c: (r - c) / r)
+    .register_batch({
+        'margin': (lambda r, c: (r - c) / r, 'Profit margin ratio'),
+        'roi': lambda r, c: (r - c) / c,
+    })
+    .register('fmt_pct', lambda x: (x * 100).round(1))
     .add_formula('profit', '@sub(revenue, cost)')
-    .add_formula('margin_pct', '@mul(@margin(revenue, cost), 100)')
+    .add_formula('margin_pct', '@fmt_pct(@margin(revenue, cost))')
+    .add_formula('roi_pct', '@fmt_pct(@roi(revenue, cost))')
 )
 
 result = engine.apply(df)

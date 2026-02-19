@@ -106,9 +106,9 @@ def demo_common():
 
 
 def demo_chaining():
-    """Demo method chaining API."""
+    """Demo method chaining and batch registration API."""
     print("\n" + "=" * 60)
-    print("METHOD CHAINING DEMO")
+    print("METHOD CHAINING & BATCH REGISTRATION DEMO")
     print("=" * 60)
 
     df = pd.DataFrame(
@@ -118,12 +118,18 @@ def demo_chaining():
         }
     )
 
-    # Fluent API
+    # Register multiple functions at once with register_batch,
+    # then chain additional calls
     engine = (
         FormulaEngine()
-        .register("margin", lambda r, c: (r - c) / r)
+        .register_batch({
+            "margin": (lambda r, c: (r - c) / r, "Calculate profit margin ratio"),
+            "roi": lambda r, c: (r - c) / c,
+        })
+        .register("fmt_pct", lambda x: (x * 100).round(1))
         .add_formula("profit", "@sub(revenue, cost)")
-        .add_formula("margin_pct", "@mul(@margin(revenue, cost), 100)")
+        .add_formula("margin_pct", "@fmt_pct(@margin(revenue, cost))")
+        .add_formula("roi_pct", "@fmt_pct(@roi(revenue, cost))")
     )
 
     result = engine.apply(df)
